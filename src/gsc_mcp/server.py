@@ -8,7 +8,25 @@ from mcp.server.fastmcp import FastMCP
 
 from gsc_mcp.auth import get_gsc_service, get_indexing_service, get_webmasters_service
 
-mcp = FastMCP("GSC")
+mcp = FastMCP(
+    "GSC",
+    instructions="""\
+Google Search Console MCP server. Provides 4 tools: gsc_performance (search \
+analytics), gsc_submit_indexing (URL indexing), gsc_inspect_url (URL inspection), \
+gsc_sitemaps (sitemap listing).
+
+IMPORTANT LIMITATIONS — the following data is NOT available via API and can only \
+be viewed in the GSC web interface (https://search.google.com/search-console):
+- Coverage overview: total indexed / not-indexed page counts
+- Not-indexed reason breakdown (discovered but not indexed, crawled but not indexed, etc.)
+- Redirect counts and details
+- CWV (Core Web Vitals) aggregate reports
+
+When your task requires coverage or indexing status data beyond single-URL inspection, \
+proactively ask the user to provide it from the GSC web interface. Do not assume \
+this data can be retrieved programmatically.\
+""",
+)
 
 _DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 _VALID_DIMENSIONS = {"query", "page", "date", "country", "device"}
