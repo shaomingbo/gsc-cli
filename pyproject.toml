@@ -1,15 +1,16 @@
 [project]
-name = "gsc-mcp"
-version = "0.1.0"
-description = "MCP server for Google Search Console API"
+name = "gsc-cli"
+version = "0.2.0"
+description = "gsc command-line tool for Google Search Console, with an MCP wrapper (gsc-mcp)"
 requires-python = ">=3.11"
 dependencies = [
-    "mcp",
+    "mcp>=1.28,<2",
     "google-api-python-client",
     "google-auth",
 ]
 
 [project.scripts]
+gsc = "gsc_cli.cli:main"
 gsc-mcp = "gsc_mcp.server:main"
 
 [build-system]
@@ -17,7 +18,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/gsc_mcp"]
+packages = ["src/gsc_cli", "src/gsc_mcp"]
 
 [dependency-groups]
-dev = ["ruff"]
+dev = ["ruff", "pytest"]

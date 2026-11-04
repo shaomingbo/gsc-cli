@@ -6,7 +6,7 @@ import re
 
 from mcp.server.fastmcp import FastMCP
 
-from gsc_mcp.auth import get_gsc_service, get_indexing_service, get_webmasters_service
+from gsc_cli import core
 
 mcp = FastMCP(
     "GSC",
@@ -108,32 +108,17 @@ def gsc_performance(
 
     site_url = _normalise_site(site)
 
-    body: dict = {
-        "startDate": start_date,
-        "endDate": end_date,
-        "dimensions": dim_list,
-        "rowLimit": row_limit,
-    }
-
-    # Build optional dimension filters.
-    filters = []
-    if page_filter:
-        filters.append(
-            {"dimension": "page", "operator": "contains", "expression": page_filter}
-        )
-    if query_filter:
-        filters.append(
-            {"dimension": "query", "operator": "contains", "expression": query_filter}
-        )
-    if filters:
-        body["dimensionFilterGroups"] = [{"filters": filters}]
-
     try:
-        service = get_gsc_service()
-        response = (
-            service.searchanalytics().query(siteUrl=site_url, body=body).execute()
+        response = core.query_performance(
+            site,
+            start_date,
+            end_date,
+            dimensions=dimensions,
+            row_limit=row_limit,
+            page_filter=page_filter,
+            query_filter=query_filter,
         )
-    except SystemExit:
+    except core.GscCredentialsError:
         return "Error: authentication failed. Check GSC_CREDENTIALS_PATH."
     except Exception as exc:  # noqa: BLE001
         return f"Error: API request failed — {exc}"
@@ -182,21 +167,16 @@ def gsc_submit_indexing(
         )
 
     try:
-        service = get_indexing_service()
-    except SystemExit:
+        result = core.submit_indexing(url_list, action=action)
+    except core.GscCredentialsError:
         return "Error: authentication failed. Check GSC_CREDENTIALS_PATH."
 
-    results: list[str] = []
-    for url in url_list:
-        body = {"url": url, "type": action}
-        try:
-            response = service.urlNotifications().publish(body=body).execute()
-            notif = response.get("urlNotificationMetadata", {})
-            latest = notif.get("latestUpdate", {}) or notif.get("latestRemove", {})
-            notify_time = latest.get("notifyTime", "unknown")
-            results.append(f"OK  {url}  (notifyTime={notify_time})")
-        except Exception as exc:  # noqa: BLE001
-            results.append(f"FAIL  {url}  — {exc}")
+    lines: list[str] = []
+    for item in result["results"]:
+        if item["ok"]:
+            lines.append(f"OK  {item['url']}  (notifyTime={item['notify_time']})")
+        else:
+            lines.append(f"FAIL  {item['url']}  — {item['error']}")
 
     header = (
         f"Indexing API — action={action}  |  submitted={len(url_list)}\n{'-' * 60}\n"
@@ -206,7 +186,7 @@ def gsc_submit_indexing(
         "Note: daily quota is ~200 publish calls. "
         "Monitor usage in the Google Cloud Console."
     )
-    return header + "\n".join(results) + footer
+    return header + "\n".join(lines) + footer
 
 
 @mcp.tool()
@@ -226,17 +206,9 @@ def gsc_inspect_url(
     site_url = _normalise_site(site)
 
     try:
-        service = get_webmasters_service()
-    except SystemExit:
+        response = core.inspect_url(site, url)
+    except core.GscCredentialsError:
         return "Error: authentication failed. Check GSC_CREDENTIALS_PATH."
-
-    body = {
-        "inspectionUrl": url,
-        "siteUrl": site_url,
-    }
-
-    try:
-        response = service.urlInspection().index().inspect(body=body).execute()
     except Exception as exc:  # noqa: BLE001
         return f"Error: URL Inspection request failed — {exc}"
 
@@ -278,12 +250,9 @@ def gsc_sitemaps(
     site_url = _normalise_site(site)
 
     try:
-        service = get_gsc_service()
-    except SystemExit:
+        response = core.list_sitemaps(site)
+    except core.GscCredentialsError:
         return "Error: authentication failed. Check GSC_CREDENTIALS_PATH."
-
-    try:
-        response = service.sitemaps().list(siteUrl=site_url).execute()
     except Exception as exc:  # noqa: BLE001
         return f"Error: sitemaps request failed — {exc}"
 
